@@ -161,8 +161,7 @@ ${
 \`\`\`ts
 interface CitizenExports {
   "${pkg.name}": {
-    /** ${exp.description} */
-    ${exp.name}: (${parameters}) => ${exp.returnType}
+    ${exp.description ? `/** ${exp.description} */\n    ` : ""}${exp.name}: (${parameters}) => ${exp.returnType}
   }
 }
 \`\`\`
