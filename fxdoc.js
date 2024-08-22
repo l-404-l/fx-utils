@@ -64,46 +64,31 @@ const program = ts.createProgram(programFiles, tsconfig);
 const typeChecker = program.getTypeChecker();
 
 /**
+ * @param {ts.Symbol} symbol
+ */
+function getFunctionDeclarationFromSymbol(symbol) {
+  const functionDeclaration = symbol.getDeclarations()?.[0];
+
+  if (functionDeclaration && ts.isFunctionLike(functionDeclaration)) {
+    return ts.isFunctionLike(functionDeclaration) && typeChecker.getSignatureFromDeclaration(functionDeclaration);
+  }
+}
+
+/**
  * @param {ts.Expression} functionArg
  */
 function getFunctionSignature(functionArg) {
   if (ts.isFunctionLike(functionArg)) return typeChecker.getSignatureFromDeclaration(functionArg);
 
   if (ts.isIdentifier(functionArg)) {
-    const functionName = functionArg.text;
-    const sourceFile = functionArg.getSourceFile();
+    const symbol = typeChecker.getSymbolAtLocation(functionArg);
 
-    return ts.forEachChild(sourceFile, (node) => {
-      if (ts.isFunctionDeclaration(node) && node.name?.text === functionName) {
-        const signature = typeChecker.getSignatureFromDeclaration(node);
+    if (!symbol) return;
 
-        if (signature) return signature;
-      }
-    });
+    return (
+      getFunctionDeclarationFromSymbol(symbol) || getFunctionDeclarationFromSymbol(typeChecker.getAliasedSymbol(symbol))
+    );
   }
-}
-
-/**
- * @param {ts.Signature} signature
- */
-function getCommentFromSignature(signature) {
-  const declaration = signature.getDeclaration();
-
-  if (declaration) {
-    const sourceFile = declaration.getSourceFile();
-    const comments = ts.getLeadingCommentRanges(sourceFile.getFullText(), declaration.pos);
-
-    return comments
-      ? comments
-          .map((commentRange) => sourceFile.getFullText().slice(commentRange.pos + 3, commentRange.end - 3))
-          .join("\n")
-          .replace(/^\s*\*\s*/gm, "") // Remove leading '*'
-          .replace(/^\s*@\w+.*$/gm, "")
-          .trim()
-      : "";
-  }
-
-  return "";
 }
 
 /**
@@ -119,9 +104,11 @@ function visit(node) {
       const signature = getFunctionSignature(functionArg);
 
       if (signature) {
+        const declaration = signature.getDeclaration();
         const parameters = signature.getParameters();
         const returnType = typeChecker.typeToString(typeChecker.getReturnTypeOfSignature(signature));
-        const description = getCommentFromSignature(signature);
+        const jsdoc = ts.getJSDocCommentsAndTags(declaration);
+        const description = jsdoc.map((comment) => comment.comment).join("\n");
 
         exports.push({ name, description, parameters, returnType });
       }
@@ -134,7 +121,7 @@ function visit(node) {
 program.getSourceFiles().forEach((sourceFile) => {
   if (sourceFile.isDeclarationFile) return;
 
-  visit(sourceFile);
+  ts.forEachChild(sourceFile, visit);
 });
 
 const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
