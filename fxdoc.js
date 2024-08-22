@@ -67,8 +67,7 @@ const typeChecker = program.getTypeChecker();
  * @param {ts.Expression} functionArg
  */
 function getFunctionSignature(functionArg) {
-  if (ts.isFunctionLike(functionArg))
-    return typeChecker.getSignatureFromDeclaration(functionArg);
+  if (ts.isFunctionLike(functionArg)) return typeChecker.getSignatureFromDeclaration(functionArg);
 
   if (ts.isIdentifier(functionArg)) {
     const functionName = functionArg.text;
@@ -92,18 +91,11 @@ function getCommentFromSignature(signature) {
 
   if (declaration) {
     const sourceFile = declaration.getSourceFile();
-    const comments = ts.getLeadingCommentRanges(
-      sourceFile.getFullText(),
-      declaration.pos
-    );
+    const comments = ts.getLeadingCommentRanges(sourceFile.getFullText(), declaration.pos);
 
     return comments
       ? comments
-          .map((commentRange) =>
-            sourceFile
-              .getFullText()
-              .slice(commentRange.pos + 3, commentRange.end - 3)
-          )
+          .map((commentRange) => sourceFile.getFullText().slice(commentRange.pos + 3, commentRange.end - 3))
           .join("\n")
           .replace(/^\s*\*\s*/gm, "") // Remove leading '*'
           .replace(/^\s*@\w+.*$/gm, "")
@@ -121,20 +113,14 @@ function visit(node) {
   if (ts.isCallExpression(node)) {
     const { expression, arguments: args } = node;
 
-    if (
-      ts.isIdentifier(expression) &&
-      expression.text === "exports" &&
-      ts.isStringLiteral(args[0])
-    ) {
+    if (ts.isIdentifier(expression) && expression.text === "exports" && ts.isStringLiteral(args[0])) {
       const name = args[0].text;
       const functionArg = args[1];
       const signature = getFunctionSignature(functionArg);
 
       if (signature) {
         const parameters = signature.getParameters();
-        const returnType = typeChecker.typeToString(
-          typeChecker.getReturnTypeOfSignature(signature)
-        );
+        const returnType = typeChecker.typeToString(typeChecker.getReturnTypeOfSignature(signature));
         const description = getCommentFromSignature(signature);
 
         exports.push({ name, description, parameters, returnType });
@@ -158,53 +144,47 @@ if (exports.length > 0) {
   await fs.mkdir(path, { recursive: true });
 
   exports.forEach((exp) => {
-    const parameters =
-      exp.parameters
-        ?.map((param) => param.valueDeclaration?.getText())
-        .join(", ") || "";
+    const parameters = exp.parameters?.map((param) => param.valueDeclaration?.getText()).join(", ") || "";
     const output = `## ${exp.name}
-  ${exp.description}
-  
-  \`\`\`ts
-  ${exp.name}(${parameters}) => ${exp.returnType}
-  \`\`\`
-  
-  ### Parameters
-  
-  ${
-    exp.parameters
-      ?.map((param) => {
-        const [name, type] =
-          param.valueDeclaration?.getText().split(": ", 2) || [];
-        const comment = param.getDocumentationComment(typeChecker)[0]?.text;
-        const str = `- ${name}: \`${type}\``;
+${exp.description}
 
-        return comment ? `${str}\n  - ${comment}` : str;
-      })
-      .join("\n") || ""
+\`\`\`ts
+${exp.name}(${parameters}) => ${exp.returnType}
+\`\`\`
+
+### Parameters
+
+${
+  exp.parameters
+    ?.map((param) => {
+      const [name, type] = param.valueDeclaration?.getText().split(": ", 2) || [];
+      const comment = param.getDocumentationComment(typeChecker)[0]?.text;
+      const str = `- ${name}: \`${type}\``;
+
+      return comment ? `${str}\n  - ${comment}` : str;
+    })
+    .join("\n") || ""
+}
+
+### Returns
+- ${exp.returnType}
+
+### Types
+
+\`\`\`ts
+interface CitizenExports {
+  "${pkg.name}": {
+    /** ${exp.description} */
+    ${exp.name}: (${parameters}) => ${exp.returnType}
   }
-  
-  ### Returns
-  - ${exp.returnType}
-  
-  ### Types
-  
-  \`\`\`ts
-  interface CitizenExports {
-    "${pkg.name}": {
-      /** ${exp.description} */
-      ${exp.name}: (${parameters}) => ${exp.returnType}
-    }
-  }
-  \`\`\`
-  
-  \`\`\`lua
-  ---@class CitizenExports.${pkg.name}
-  ---@field ${exp.name} fun(self: self, ${parameters}): ${exp.returnType} ${
-      exp.description
-    }
-  \`\`\`
-  `;
+}
+\`\`\`
+
+\`\`\`lua
+---@class CitizenExports.${pkg.name}
+---@field ${exp.name} fun(self: self, ${parameters}): ${exp.returnType} ${exp.description}
+\`\`\`
+`;
 
     fs.writeFile(`${path}/${exp.name}.md`, output);
   });
