@@ -128,6 +128,9 @@ const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
 
 if (exports.length > 0) {
   const path = options.out;
+  let dts = [];
+  let dlua = [];
+
   await fs.mkdir(path, { recursive: true });
 
   exports.forEach((exp) => {
@@ -155,23 +158,26 @@ ${
 
 ### Returns
 - ${exp.returnType}
-
-### Types
-
-\`\`\`ts
-interface CitizenExports {
-  "${pkg.name}": {
-    ${exp.description ? `/** ${exp.description} */\n    ` : ""}${exp.name}: (${parameters}) => ${exp.returnType}
-  }
-}
-\`\`\`
-
-\`\`\`lua
----@class CitizenExports.${pkg.name}
----@field ${exp.name} fun(self: self, ${parameters}): ${exp.returnType} ${exp.description}
-\`\`\`
 `;
+
+    dts.push(
+      `${exp.description ? `/** ${exp.description} */\n\t\t` : ""}${exp.name}: (${parameters}) => ${exp.returnType};`
+    );
+
+    dlua.push(
+      `---@field ${exp.name} fun(self: self, ${parameters}): ${exp.returnType} ${exp.description}`
+    );
 
     fs.writeFile(`${path}/${exp.name}.md`, output);
   });
+
+  fs.writeFile(
+    `${path}/exports.d.ts`,
+    `interface CitizenExports {\n\t"${pkg.name}": {\n\t\t${dts.join("\n\t\t")}\n\t}\n}`
+  );
+
+  fs.writeFile(
+    `${path}/exports.d.lua`,
+    `---@class CitizenExports.${pkg.name}\n${dlua.join("\n")}\n`
+  );
 }
