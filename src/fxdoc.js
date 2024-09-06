@@ -1,6 +1,8 @@
 //@ts-check
+
 import ts from "typescript";
 import { promises as fs } from "fs";
+import { getFiles, readJson } from "./";
 
 const options = process.argv.reduce(
   (acc, arg, index) => {
@@ -23,31 +25,6 @@ console.log("running fxdoc");
 console.log(JSON.stringify(options));
 
 /**
- * @param args {string[]}
- */
-export async function getFiles(...args) {
-  const files = await Promise.all(
-    args.map(async (dir) => {
-      try {
-        const dirents = await fs.readdir(`${dir}/`, { withFileTypes: true });
-        const paths = await Promise.all(
-          dirents.map(async (dirent) => {
-            const path = `${dir}/${dirent.name}`;
-            return dirent.isDirectory() ? await getFiles(path) : path;
-          })
-        );
-
-        return paths.flat();
-      } catch (err) {
-        return [];
-      }
-    })
-  );
-
-  return files.flat();
-}
-
-/**
  * @typedef {Object} Export
  * @property {string} name
  * @property {string} description
@@ -58,7 +35,7 @@ export async function getFiles(...args) {
 /** @type {Export[]} */
 const exports = [];
 
-const tsconfig = JSON.parse(await fs.readFile(options.tsconfig, "utf8"));
+const tsconfig = await readJson(options.tsconfig);
 const programFiles = await getFiles(options.dir);
 const program = ts.createProgram(programFiles, tsconfig);
 const typeChecker = program.getTypeChecker();
@@ -124,7 +101,7 @@ program.getSourceFiles().forEach((sourceFile) => {
   ts.forEachChild(sourceFile, visit);
 });
 
-const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
+const pkg = await readJson("package.json");
 
 if (exports.length > 0) {
   const path = options.out;
@@ -164,9 +141,7 @@ ${
       `${exp.description ? `/** ${exp.description} */\n\t\t` : ""}${exp.name}: (${parameters}) => ${exp.returnType};`
     );
 
-    dlua.push(
-      `---@field ${exp.name} fun(self: self, ${parameters}): ${exp.returnType} ${exp.description}`
-    );
+    dlua.push(`---@field ${exp.name} fun(self: self, ${parameters}): ${exp.returnType} ${exp.description}`);
 
     fs.writeFile(`${path}/${exp.name}.md`, output);
   });
@@ -176,8 +151,5 @@ ${
     `interface CitizenExports {\n\t"${pkg.name}": {\n\t\t${dts.join("\n\t\t")}\n\t}\n}`
   );
 
-  fs.writeFile(
-    `${path}/exports.d.lua`,
-    `---@class CitizenExports.${pkg.name}\n${dlua.join("\n")}\n`
-  );
+  fs.writeFile(`${path}/exports.d.lua`, `---@class CitizenExports.${pkg.name}\n${dlua.join("\n")}\n`);
 }

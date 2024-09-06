@@ -3,8 +3,12 @@
   "version": "0.0.1",
   "description": "",
   "type": "module",
+  "main": "./index.js",
   "bin": {
-    "fxdoc": "./fxdoc.js"
+    "fxdoc": "./src/fxdoc.js"
+  },
+  "exports": {
+    ".": "./src/"
   },
   "scripts": {},
   "keywords": [],
@@ -12,6 +16,7 @@
   "funding": "https://ko-fi.com/thelindat",
   "license": "MIT",
   "dependencies": {
+    "esbuild": "^0.23.1",
     "typescript": "^5.5.4"
   }
 }
