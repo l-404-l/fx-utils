@@ -2,7 +2,7 @@
 
 import ts from "typescript";
 import { promises as fs } from "fs";
-import { getFiles, readJson } from "./";
+import { getFiles, readJson } from "./index.js";
 
 const options = process.argv.reduce(
   (acc, arg, index) => {

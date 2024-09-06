@@ -1,3 +1,3 @@
-export * from "./getFiles";
-export * from "./readJson";
-export * from "./esbuild";
+export * from "./getFiles.js";
+export * from "./readJson.js";
+export * from "./esbuild.js";
