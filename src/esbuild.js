@@ -8,19 +8,22 @@ import { spawn } from "child_process";
  * @param {boolean} watch
  * @param {esbuild.BuildOptions} baseOptions
  * @param {{ name: string; options: esbuild.BuildOptions }[]} environments
- * @param {() => Promise<void>} onBuild
+ * @param {(files: object) => Promise<void>} onBuild
  */
 export async function createBuilder(watch, baseOptions, environments, onBuild) {
   let builder;
   const ctx = [];
+  const outfiles = {};
 
   environments.forEach(async ({ name, options }) => {
+    outfiles[name] = `dist/${name}.js`;
+
     ctx.push(
       await esbuild
         .context({
           bundle: true,
           entryPoints: [`${name}/index.ts`],
-          outfile: `dist/${name}.js`,
+          outfile: outfiles[name],
           keepNames: true,
           legalComments: "inline",
           plugins: [
@@ -52,7 +55,7 @@ export async function createBuilder(watch, baseOptions, environments, onBuild) {
 
     await Promise.all(promises);
     await writeFile(".yarn.installed", new Date().toISOString());
-    await onBuild();
+    await onBuild(outfiles);
   };
 
   const tsc = spawn(`tsc --build ${watch ? "--watch --preserveWatchOutput" : ""} && tsc-alias`, {
