@@ -1,13 +1,11 @@
-//@ts-check
-
 import { readdir } from "fs/promises";
 
 /**
  * Returns a flattened array of all files located at the given paths.
- * @param {string[]} paths
- * @returns {Promise<string[]>}
+ * @param paths - The directories to search for files.
+ * @returns A promise that resolves to an array of file paths.
  */
-export async function getFiles(...paths) {
+export async function getFiles(...paths: string[]): Promise<string[]> {
   const files = await Promise.all(
     paths.map(async (dir) => {
       try {

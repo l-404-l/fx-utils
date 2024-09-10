@@ -3,20 +3,28 @@
   "version": "0.0.1",
   "description": "",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./dist/index.js",
   "bin": {
-    "fxdoc": "./src/fxdoc.js"
+    "fxdoc": "./dist/bin/fxdoc.js"
   },
   "exports": {
-    ".": "./src/index.js"
+    ".": "./dist/index.js"
   },
-  "scripts": {},
+  "scripts": {
+    "prepare": "tsc"
+  },
+  "files": [
+    "./dist/**/*.js"
+  ],
   "keywords": [],
   "author": "https://github.com/thelindat/",
   "funding": "https://ko-fi.com/thelindat",
   "license": "MIT",
   "dependencies": {
-    "esbuild": "^0.23.1",
-    "typescript": "^5.5.4"
+    "esbuild": "^0.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "typescript": "^5.6.2"
   }
 }

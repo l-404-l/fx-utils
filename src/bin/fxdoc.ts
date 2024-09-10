@@ -1,39 +1,34 @@
-//@ts-check
-
 import ts from "typescript";
 import { promises as fs } from "fs";
-import { getFiles, readJson } from "./index.js";
+import { getFiles } from "../getFiles.js";
+import { readJson } from "../readJson.js";
 
-const options = process.argv.reduce(
-  (acc, arg, index) => {
-    if (index > 1) {
-      const [name, value] = arg.split("=", 2);
+const options = {
+  dir: "./src",
+  out: "./fxdoc",
+  tsconfig: "./tsconfig.json",
+};
 
-      if (value) acc[name] = value.trim();
-    }
+process.argv.forEach((arg, index) => {
+  if (index > 1) {
+    const [name, value] = arg.split("=", 2) as [keyof typeof options, string];
 
-    return acc;
-  },
-  {
-    dir: "./src",
-    out: "./fxdoc",
-    tsconfig: "./tsconfig.json",
+    if (name in options && value) options[name] = value.trim();
   }
-);
+});
 
 console.log("running fxdoc");
 console.log(JSON.stringify(options));
 
-/**
- * @typedef {Object} Export
- * @property {string} name
- * @property {string} description
- * @property {ts.Symbol[]|undefined} parameters
- * @property {string} returnType
- */
+interface Export {
+  name: string;
+  description: string;
+  parameters?: ts.Symbol[];
+  returnType: string;
+}
 
 /** @type {Export[]} */
-const exports = [];
+const exports: Export[] = [];
 
 const tsconfig = await readJson(options.tsconfig);
 const programFiles = await getFiles(options.dir);
@@ -41,20 +36,24 @@ const program = ts.createProgram(programFiles, tsconfig);
 const typeChecker = program.getTypeChecker();
 
 /**
- * @param {ts.Symbol} symbol
+ * Retrieves the function signature from a symbol.
+ * @param symbol - The TypeScript symbol representing the function.
+ * @returns The function signature or undefined.
  */
-function getFunctionDeclarationFromSymbol(symbol) {
+function getFunctionDeclarationFromSymbol(symbol: ts.Symbol): ts.Signature | undefined {
   const functionDeclaration = symbol.getDeclarations()?.[0];
 
   if (functionDeclaration && ts.isFunctionLike(functionDeclaration)) {
-    return ts.isFunctionLike(functionDeclaration) && typeChecker.getSignatureFromDeclaration(functionDeclaration);
+    return typeChecker.getSignatureFromDeclaration(functionDeclaration);
   }
 }
 
 /**
- * @param {ts.Expression} functionArg
+ * Retrieves the function signature from an expression.
+ * @param functionArg - The TypeScript expression representing the function argument.
+ * @returns The function signature or undefined.
  */
-function getFunctionSignature(functionArg) {
+function getFunctionSignature(functionArg: ts.Expression): ts.Signature | undefined {
   if (ts.isFunctionLike(functionArg)) return typeChecker.getSignatureFromDeclaration(functionArg);
 
   if (ts.isIdentifier(functionArg)) {
@@ -69,9 +68,10 @@ function getFunctionSignature(functionArg) {
 }
 
 /**
- * @param {ts.Node} node
+ * Visits each node in the TypeScript AST to find export functions.
+ * @param node - The TypeScript node to visit.
  */
-function visit(node) {
+function visit(node: ts.Node): void {
   if (ts.isCallExpression(node)) {
     const { expression, arguments: args } = node;
 
@@ -105,8 +105,8 @@ const pkg = await readJson("package.json");
 
 if (exports.length > 0) {
   const path = options.out;
-  let dts = [];
-  let dlua = [];
+  let dts: string[] = [];
+  let dlua: string[] = [];
 
   await fs.mkdir(path, { recursive: true });
 

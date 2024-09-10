@@ -1,19 +1,22 @@
-//@ts-check
-
 import esbuild from "esbuild";
 import { writeFile } from "fs/promises";
 import { spawn } from "child_process";
 
 /**
- * @param {boolean} watch
- * @param {esbuild.BuildOptions} baseOptions
- * @param {{ name: string; options: esbuild.BuildOptions }[]} environments
- * @param {(files: object) => Promise<void>} onBuild
+ * Creates a build process using esbuild.
+ * @param watch - Whether to enable watch mode.
+ * @param baseOptions - The base build options for esbuild.
+ * @param environments - An array of environments with their names and esbuild options.
+ * @param onBuild - A callback function that gets called after a successful build.
  */
-export async function createBuilder(watch, baseOptions, environments, onBuild) {
-  let builder;
-  const ctx = [];
-  const outfiles = {};
+export async function createBuilder(
+  watch: boolean,
+  baseOptions: esbuild.BuildOptions,
+  environments: { name: string; options: esbuild.BuildOptions }[],
+  onBuild: (files: Record<string, string>) => Promise<void>
+): Promise<void> {
+  const ctx: esbuild.BuildContext[] = [];
+  const outfiles: Record<string, string> = {};
 
   environments.forEach(async ({ name, options }) => {
     outfiles[name] = `dist/${name}.js`;
@@ -46,13 +49,8 @@ export async function createBuilder(watch, baseOptions, environments, onBuild) {
 
   await Promise.all(ctx);
 
-  builder = async () => {
-    const promises = [];
-
-    ctx.forEach((context) => {
-      return promises.push(context.rebuild());
-    });
-
+  const builder = async () => {
+    const promises = ctx.map((context) => context.rebuild());
     await Promise.all(promises);
     await writeFile(".yarn.installed", new Date().toISOString());
     await onBuild(outfiles);
@@ -77,7 +75,6 @@ export async function createBuilder(watch, baseOptions, environments, onBuild) {
       if (code !== 0) return process.exit(code);
 
       await builder();
-
       process.exit(0);
     });
   }
