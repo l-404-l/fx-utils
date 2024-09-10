@@ -1,6 +1,6 @@
 {
   "name": "@overextended/fx-utils",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,14 +14,16 @@
     "prepare": "tsc"
   },
   "files": [
-    "./dist/**/*.js"
+    "./dist/**/*.js",
+    "./dist/**/*.d.ts"
   ],
   "keywords": [],
   "author": "https://github.com/thelindat/",
   "funding": "https://ko-fi.com/thelindat",
   "license": "MIT",
   "dependencies": {
-    "esbuild": "^0.23.1"
+    "esbuild": "^0.23.1",
+    "tsc-alias": "^1.8.10"
   },
   "devDependencies": {
     "@types/node": "^20.16.5",

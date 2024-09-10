@@ -10,7 +10,8 @@
     "moduleResolution": "node",
     "types": ["@types/node"],
     "skipLibCheck": true,
-    "outDir": "./dist/"
+    "outDir": "./dist/",
+    "declaration": true
   },
   "include": ["./src"]
 }

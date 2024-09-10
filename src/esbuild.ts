@@ -1,6 +1,5 @@
 import esbuild from "esbuild";
 import { writeFile } from "fs/promises";
-import { spawn } from "child_process";
 
 /**
  * Creates a build process using esbuild.
@@ -15,67 +14,42 @@ export async function createBuilder(
   environments: { name: string; options: esbuild.BuildOptions }[],
   onBuild: (files: Record<string, string>) => Promise<void>
 ): Promise<void> {
-  const ctx: esbuild.BuildContext[] = [];
   const outfiles: Record<string, string> = {};
+  const plugins: esbuild.Plugin[] = [
+    {
+      name: "build",
+      setup(build) {
+        build.onEnd(async (result) => {
+          if (result.errors.length === 0) {
+            console.log(`Successfully built ${build.initialOptions.outfile}`);
+          }
+        });
+      },
+    },
+  ];
 
-  environments.forEach(async ({ name, options }) => {
-    outfiles[name] = `dist/${name}.js`;
+  await Promise.all(
+    environments.map(async ({ name, options }) => {
+      outfiles[name] = `dist/${name}.js`;
+      options = {
+        bundle: true,
+        entryPoints: [`./src/${name}/index.ts`],
+        outfile: outfiles[name],
+        keepNames: true,
+        legalComments: "inline",
+        treeShaking: true,
+        ...baseOptions,
+        ...options,
+      };
+      options.plugins = [...(options.plugins || []), ...plugins];
 
-    ctx.push(
-      await esbuild
-        .context({
-          bundle: true,
-          entryPoints: [`${name}/index.ts`],
-          outfile: outfiles[name],
-          keepNames: true,
-          legalComments: "inline",
-          plugins: [
-            {
-              name: "build",
-              setup(build) {
-                build.onEnd((result) => {
-                  if (!result || result.errors.length === 0)
-                    console.log(`Successfully built ${build.initialOptions.outfile}`);
-                });
-              },
-            },
-          ],
-          ...baseOptions,
-          ...options,
-        })
-        .catch(() => process.exit(1))
-    );
-  });
+      const ctx = await esbuild.context(options).catch(() => process.exit(1));
+      return watch ? ctx.watch() : ctx.rebuild();
+    })
+  );
 
-  await Promise.all(ctx);
+  await writeFile(".yarn.installed", new Date().toISOString());
+  await onBuild(outfiles);
 
-  const builder = async () => {
-    const promises = ctx.map((context) => context.rebuild());
-    await Promise.all(promises);
-    await writeFile(".yarn.installed", new Date().toISOString());
-    await onBuild(outfiles);
-  };
-
-  const tsc = spawn(`tsc --build ${watch ? "--watch --preserveWatchOutput" : ""} && tsc-alias`, {
-    stdio: ["inherit", "pipe", "inherit"],
-    shell: true,
-  });
-
-  tsc.stdout.on("data", async (data) => {
-    const output = data.toString();
-    process.stdout.write(output);
-
-    if (output.includes("Found 0 errors.")) {
-      await builder();
-    }
-  });
-
-  if (!watch) {
-    tsc.on("close", async (code) => {
-      if (code !== 0) return process.exit(code);
-
-      await builder();
-      process.exit(0);
-    });
-  }
+  if (!watch) process.exit(0)
 }
